@@ -1,6 +1,7 @@
 from typing import Callable, Tuple, Dict, Any, List
 
-import jax.numpy as np
+# import jax.numpy as np
+import numpy as np
 
 # type aliases
 Array = Any 
@@ -9,7 +10,7 @@ States = Dict[Tuple[int,int], Array]  # Indexed by tuples (batch index, node ind
 class NumpyMCTS():
     """MCTS for one token"""
 
-    def __init__(self, root_fun: Callable[[], Tuple[Array, Any, States]], rec_fun: Callable[[List, int], Tuple], batch_size: int, num_simulations, num_actions, num_sparse_actions, pb_c_init):
+    def __init__(self, root_fun: Callable[[], Tuple[Array, Any, States]], rec_fun: Callable[[List[Array], Array], Tuple[Array, Any, List[Array], Array]], batch_size: int, num_simulations, num_actions, num_sparse_actions, pb_c_init):
         self._batch_size = batch_size
         self._num_simulations = num_simulations
         self._num_actions = num_actions
@@ -38,7 +39,7 @@ class NumpyMCTS():
         # The 0-indexed depth of the node. The root is the only 0-depth node.
         # The depth of node i, is the depth of its parent + 1.
         self._depth = np.zeros(batch_node, dtype=np.int32)
-        self._is_terminal = np.full(batch_node, False, dtype=np.bool)
+        self._is_terminal = np.full(batch_node, False, dtype=np.bool_)
 
         # To avoid costly numpy ops, we store a sparse version of the actions.
         # We select the top k actions according to the policy, and keep a mapping
@@ -143,7 +144,7 @@ class NumpyMCTS():
         actions = np.argmax(node_uct_score, axis=1)
         return actions
 
-    def expand(self, node_indices, actions, next_node_index):
+    def expand(self, node_indices, actions, next_node_index: int):
         """Creates and evaluate child nodes from given nodes and unexplored actions."""
 
         # Retrieve states for nodes to be evaluated.
@@ -178,9 +179,9 @@ class NumpyMCTS():
         self._depth[:, next_node_index] = self._depth[self._batch_range,
                                                       node_indices] + 1
 
-    def create_node(self, node_index: int, prior: Array, values, next_states: List[Array], expanded_node_is_terminal):
+    def create_node(self, node_index: int, prior: Array, values, next_states: List[Array], expanded_node_is_terminal: Array):
         # Truncate the prior to only keep the top k logits
-        prior_topk_indices = np.argpartition(
+        prior_topk_indices = np.argpartition( # not implemeted in JAX yet :(
             prior, -self._num_sparse_actions, axis=-1)[:, -self._num_sparse_actions:]
         prior = prior[self._batch_range[:, None], prior_topk_indices]  # (B, A)
 
